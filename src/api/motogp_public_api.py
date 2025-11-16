@@ -96,7 +96,8 @@ class MotoGPPublicAPIClient:
         """
         try:
             logger.info(f"Fetching calendar for season {season}")
-            data = await self._make_request(f"results/events", params={"seasonYear": season})
+            # Try new API endpoint structure
+            data = await self._make_request(f"results/events", params={"year": season})
             
             events = []
             for event in data:
@@ -134,7 +135,7 @@ class MotoGPPublicAPIClient:
             Event details including session schedule
         """
         try:
-            data = await self._make_request(f"results/event/{event_id}", params={"seasonYear": season})
+            data = await self._make_request(f"results/event/{event_id}", params={"year": season})
             return data
         except Exception as e:
             logger.error(f"Error fetching event {event_id}: {e}")
@@ -148,8 +149,13 @@ class MotoGPPublicAPIClient:
             List of categories (MotoGP, Moto2, Moto3)
         """
         try:
-            data = await self._make_request(f"results/categories", params={"seasonYear": season})
-            return data if data else []
+            # Try without year parameter first, then with year if that fails
+            try:
+                data = await self._make_request(f"results/categories")
+                return data if data else []
+            except:
+                data = await self._make_request(f"results/categories", params={"year": season})
+                return data if data else []
         except Exception as e:
             logger.error(f"Error fetching categories: {e}")
             return []
@@ -169,7 +175,7 @@ class MotoGPPublicAPIClient:
             logger.info(f"Fetching riders for {category} season {season}")
             data = await self._make_request(
                 f"results/riders",
-                params={"seasonYear": season, "category": category}
+                params={"year": season, "category": category}
             )
             
             riders = []
@@ -222,7 +228,7 @@ class MotoGPPublicAPIClient:
                 params={
                     "eventUuid": event_id,
                     "categoryUuid": category,
-                    "seasonYear": season
+                    "year": season
                 }
             )
             
@@ -291,7 +297,7 @@ class MotoGPPublicAPIClient:
             data = await self._make_request(
                 f"results/standings/riders",
                 params={
-                    "seasonYear": season,
+                    "year": season,
                     "categoryUuid": category
                 }
             )
