@@ -79,17 +79,20 @@ def create_test_event():
             ).first()
             
             if not existing_race:
-                # Crear horarios de carrera (sprint a las 15:00, carrera principal a las 14:00 del domingo)
+                # Crear horarios de carrera (carrera principal a las 14:00)
                 race_datetime = datetime.combine(event.event_date, datetime.min.time())
                 race_datetime = race_datetime.replace(hour=14, minute=0)  # Carrera a las 14:00
+                
+                # Cerrar apuestas 1 hora antes
+                bet_close_datetime = race_datetime - timedelta(hours=1)
                 
                 race = Race(
                     event_id=event.id,
                     category_id=category.id,
                     race_type_id=race_type.id,
-                    race_date=race_datetime,
-                    status="scheduled",
-                    external_id=f"test-race-{category.code.lower()}-001"
+                    race_datetime=race_datetime,
+                    bet_close_datetime=bet_close_datetime,
+                    status="upcoming"
                 )
                 db.add(race)
                 races_created += 1
@@ -98,8 +101,10 @@ def create_test_event():
                 # Actualizar fecha de la carrera existente
                 race_datetime = datetime.combine(event.event_date, datetime.min.time())
                 race_datetime = race_datetime.replace(hour=14, minute=0)
-                existing_race.race_date = race_datetime
-                existing_race.status = "scheduled"
+                bet_close_datetime = race_datetime - timedelta(hours=1)
+                existing_race.race_datetime = race_datetime
+                existing_race.bet_close_datetime = bet_close_datetime
+                existing_race.status = "upcoming"
                 logger.info(f"Updated race for {category.name} at {race_datetime}")
         
         db.commit()
@@ -116,7 +121,8 @@ def create_test_event():
         print(f"\n🏁 Races Created:")
         races = db.query(Race).filter(Race.event_id == event.id).all()
         for race in races:
-            print(f"   - {race.category.name}: {race.race_date.strftime('%Y-%m-%d %H:%M')}")
+            print(f"   - {race.category.name}: {race.race_datetime.strftime('%Y-%m-%d %H:%M')}")
+            print(f"     Bets close: {race.bet_close_datetime.strftime('%Y-%m-%d %H:%M')}")
             print(f"     Status: {race.status}")
         
         print(f"\n💡 Next Steps:")
