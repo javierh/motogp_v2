@@ -28,11 +28,18 @@ class MotoGPPublicAPIClient:
         self.resources_url = "https://resources.motogp.pulselive.com"
         self.session: Optional[aiohttp.ClientSession] = None
         
-        # Category mappings
+        # Category mappings (API uses trademark symbols)
         self.category_map = {
-            "MOTOGP": "MotoGP",
-            "MOTO2": "Moto2",
-            "MOTO3": "Moto3"
+            "MOTOGP": "MotoGP™",
+            "MOTO2": "Moto2™",
+            "MOTO3": "Moto3™"
+        }
+        
+        # Category UUIDs (hardcoded for better performance)
+        self.category_uuids = {
+            "MOTOGP": "e8c110ad-64aa-4e8e-8a86-f2f152f6a942",
+            "MOTO2": "549640b8-fd9c-4245-acfd-60e4bc38b25c",
+            "MOTO3": "954f7e65-2ef2-4423-b949-4961cc603e45"
         }
     
     async def __aenter__(self):
@@ -383,8 +390,14 @@ class MotoGPPublicAPIClient:
             Category UUID or None
         """
         try:
+            # First try hardcoded UUIDs (faster and more reliable)
+            category_upper = category_code.upper()
+            if category_upper in self.category_uuids:
+                return self.category_uuids[category_upper]
+            
+            # Fallback to API lookup
             categories = await self.get_categories(season)
-            category_name = self.category_map.get(category_code.upper())
+            category_name = self.category_map.get(category_upper)
             
             for cat in categories:
                 if cat.get("name") == category_name:
