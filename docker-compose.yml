@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - MYSQL_HOST=mysql
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_PORT=3306
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
