@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: novaporra-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - novaporra-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  bot:
+    build: .
+    container_name: novaporra-bot
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MOTOGP_API_URL=${MOTOGP_API_URL}
+      - MOTOGP_API_KEY=${MOTOGP_API_KEY}
+      - MOTOGP_API_SECRET=${MOTOGP_API_SECRET}
+      - APP_TIMEZONE=${APP_TIMEZONE}
+      - BET_CLOSE_MINUTES=${BET_CLOSE_MINUTES}
+      - CURRENT_SEASON=${CURRENT_SEASON}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - DEBUG=${DEBUG}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - novaporra-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  novaporra-network:
+    driver: bridge

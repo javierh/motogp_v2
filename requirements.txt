@@ -1,0 +1,37 @@
+# Telegram Bot
+python-telegram-bot==20.7
+
+# Database
+mysql-connector-python==8.2.0
+SQLAlchemy==2.0.23
+alembic==1.13.0
+
+# HTTP Requests
+requests==2.31.0
+aiohttp==3.9.1
+
+# Data Processing
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Environment Management
+python-dotenv==1.0.0
+
+# Utilities
+pydantic==2.5.2
+pydantic-settings==2.1.0
+
+# Scraping (if needed for MotoGP data)
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Logging
+colorlog==6.8.0
+
+# Scheduling
+APScheduler==3.10.4
