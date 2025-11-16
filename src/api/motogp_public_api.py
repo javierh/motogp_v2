@@ -217,36 +217,94 @@ class MotoGPPublicAPIClient:
             List of riders with details
         """
         try:
-            logger.info(f"Fetching riders for {category} season {season}")
+            logger.info(f"Fetching riders for category {category} season {season}")
+            
             # Get season UUID first
             season_uuid = await self.get_season_uuid(season)
             if not season_uuid:
                 logger.error(f"Could not find UUID for season {season}")
                 return []
             
-            data = await self._make_request(
-                f"results/riders",
-                params={"seasonUuid": season_uuid, "categoryUuid": category}
-            )
+            # Get calendar events
+            events = await self.get_calendar(season)
+            if not events:
+                logger.warning(f"No events found for season {season}")
+                return []
             
-            riders = []
-            for rider in data:
-                rider_info = {
-                    "rider_id": rider.get("id"),
-                    "number": rider.get("current_career_step", {}).get("number"),
-                    "first_name": rider.get("name"),
-                    "last_name": rider.get("surname"),
-                    "full_name": rider.get("full_name"),
-                    "country": rider.get("country", {}).get("name"),
-                    "country_iso": rider.get("country", {}).get("iso"),
-                    "team": rider.get("current_career_step", {}).get("team"),
-                    "bike": rider.get("current_career_step", {}).get("constructor", {}).get("name"),
-                    "birth_date": rider.get("birth_date"),
-                    "photo_url": rider.get("pictures", {}).get("profile", {}).get("main")
-                }
-                riders.append(rider_info)
+            # Dictionary to store unique riders (by rider_id)
+            riders_dict = {}
             
-            logger.info(f"Found {len(riders)} riders")
+            # Iterate through events to find race sessions
+            for event in events:
+                event_id = event.get("event_id")
+                if not event_id or event.get("test", False):
+                    continue
+                
+                try:
+                    # Get sessions for this event and category
+                    sessions_data = await self._make_request(
+                        "results/sessions",
+                        params={"eventUuid": event_id, "categoryUuid": category}
+                    )
+                    
+                    if not sessions_data:
+                        continue
+                    
+                    # Look for race session (RAC) or sprint (SPR)
+                    for session in sessions_data:
+                        session_type = session.get("type")
+                        if session_type not in ["RAC", "SPR"]:
+                            continue
+                        
+                        session_id = session.get("id")
+                        if not session_id:
+                            continue
+                        
+                        # Get classification for this session
+                        classification_data = await self._make_request(
+                            f"results/session/{session_id}/classification"
+                        )
+                        
+                        if not classification_data or "classification" not in classification_data:
+                            continue
+                        
+                        # Extract riders from classification
+                        for entry in classification_data["classification"]:
+                            rider = entry.get("rider", {})
+                            rider_id = rider.get("id")
+                            
+                            if not rider_id or rider_id in riders_dict:
+                                continue
+                            
+                            team = entry.get("team", {})
+                            constructor = entry.get("constructor", {})
+                            
+                            rider_info = {
+                                "rider_id": rider_id,
+                                "number": rider.get("number"),
+                                "full_name": rider.get("full_name"),
+                                "country": rider.get("country", {}).get("name"),
+                                "country_iso": rider.get("country", {}).get("iso"),
+                                "team": team.get("name"),
+                                "bike": constructor.get("name"),
+                                "legacy_id": rider.get("legacy_id")
+                            }
+                            
+                            riders_dict[rider_id] = rider_info
+                        
+                        # Break after finding first race/sprint session
+                        break
+                    
+                    # If we found riders in this event, we can stop (for performance)
+                    if len(riders_dict) >= 20:  # Approximate number of riders per category
+                        break
+                        
+                except Exception as e:
+                    logger.warning(f"Error processing event {event_id}: {e}")
+                    continue
+            
+            riders = list(riders_dict.values())
+            logger.info(f"Found {len(riders)} unique riders for category {category}")
             return riders
             
         except Exception as e:
