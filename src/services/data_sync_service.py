@@ -117,17 +117,26 @@ class DataSyncService:
                         # Skip if no number
                         if not rider_data.get("number"):
                             continue
-                        
+
+                        # Normalize name: API may provide full_name rather than first/last
+                        full_name = rider_data.get("full_name") or ""
+                        first_name = rider_data.get("first_name")
+                        last_name = rider_data.get("last_name")
+                        if not first_name and full_name:
+                            parts = full_name.split()
+                            first_name = parts[0]
+                            last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
                         # Get or create rider
                         rider = db.query(Rider).filter(
                             Rider.external_id == rider_data["rider_id"]
                         ).first()
-                        
+
                         if not rider:
                             rider = Rider(
-                                first_name=rider_data["first_name"],
-                                last_name=rider_data["last_name"],
-                                number=rider_data["number"],
+                                first_name=first_name,
+                                last_name=last_name,
+                                number=rider_data.get("number"),
                                 country=rider_data.get("country"),
                                 external_id=rider_data["rider_id"]
                             )
@@ -136,9 +145,9 @@ class DataSyncService:
                             total_riders_synced += 1
                         else:
                             # Update rider info
-                            rider.first_name = rider_data["first_name"]
-                            rider.last_name = rider_data["last_name"]
-                            rider.number = rider_data["number"]
+                            rider.first_name = first_name
+                            rider.last_name = last_name
+                            rider.number = rider_data.get("number")
                             rider.country = rider_data.get("country")
                         
                         # Create or update rider season
