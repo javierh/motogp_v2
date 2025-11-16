@@ -4,7 +4,7 @@ Database connection and session management
 
 from contextlib import contextmanager
 from typing import Generator
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
@@ -33,7 +33,7 @@ SessionLocal = sessionmaker(
 
 
 @event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_conn, connection_record):
+def set_mysql_params(dbapi_conn, connection_record):
     """Set MySQL connection parameters"""
     cursor = dbapi_conn.cursor()
     cursor.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'")
@@ -68,7 +68,7 @@ def init_db() -> None:
     try:
         # Test connection
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         logger.info("Database connection successful")
     except Exception as e:
         logger.error(f"Database connection failed: {e}")

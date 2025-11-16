@@ -18,9 +18,11 @@ services:
     networks:
       - novaporra-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
       timeout: 20s
       retries: 10
+      interval: 5s
+      start_period: 30s
 
   bot:
     build: .
