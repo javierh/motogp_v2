@@ -72,12 +72,38 @@ class MotoGPPublicAPIClient:
             logger.error(f"Unexpected error: {e}")
             raise
     
+    async def get_season_uuid(self, year: int) -> Optional[str]:
+        """
+        Get season UUID from year
+        
+        Args:
+            year: Season year (e.g., 2024, 2025)
+        
+        Returns:
+            Season UUID or None
+        """
+        try:
+            data = await self._make_request("results/seasons")
+            if data and isinstance(data, list):
+                for season in data:
+                    if season.get("year") == year:
+                        return season.get("id")
+            logger.error(f"Season {year} not found in API")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting season UUID: {e}")
+            return None
+    
     async def get_current_season(self) -> int:
         """Get current season year"""
         try:
             data = await self._make_request("results/seasons")
             if data and isinstance(data, list) and len(data) > 0:
-                # Get the most recent season
+                # Find current season
+                for season in data:
+                    if season.get("current", False):
+                        return int(season.get("year", settings.current_season))
+                # Fallback to first season
                 return int(data[0].get("year", settings.current_season))
             return settings.current_season
         except Exception as e:
@@ -96,8 +122,13 @@ class MotoGPPublicAPIClient:
         """
         try:
             logger.info(f"Fetching calendar for season {season}")
-            # Try new API endpoint structure
-            data = await self._make_request(f"results/events", params={"year": season})
+            # Get season UUID first
+            season_uuid = await self.get_season_uuid(season)
+            if not season_uuid:
+                logger.error(f"Could not find UUID for season {season}")
+                return []
+            
+            data = await self._make_request(f"results/events", params={"seasonUuid": season_uuid})
             
             events = []
             for event in data:
@@ -135,7 +166,13 @@ class MotoGPPublicAPIClient:
             Event details including session schedule
         """
         try:
-            data = await self._make_request(f"results/event/{event_id}", params={"year": season})
+            # Get season UUID first
+            season_uuid = await self.get_season_uuid(season)
+            if not season_uuid:
+                logger.error(f"Could not find UUID for season {season}")
+                return None
+            
+            data = await self._make_request(f"results/event/{event_id}", params={"seasonUuid": season_uuid})
             return data
         except Exception as e:
             logger.error(f"Error fetching event {event_id}: {e}")
@@ -149,13 +186,14 @@ class MotoGPPublicAPIClient:
             List of categories (MotoGP, Moto2, Moto3)
         """
         try:
-            # Try without year parameter first, then with year if that fails
-            try:
-                data = await self._make_request(f"results/categories")
-                return data if data else []
-            except:
-                data = await self._make_request(f"results/categories", params={"year": season})
-                return data if data else []
+            # Get season UUID first
+            season_uuid = await self.get_season_uuid(season)
+            if not season_uuid:
+                logger.error(f"Could not find UUID for season {season}")
+                return []
+            
+            data = await self._make_request(f"results/categories", params={"seasonUuid": season_uuid})
+            return data if data else []
         except Exception as e:
             logger.error(f"Error fetching categories: {e}")
             return []
@@ -166,16 +204,22 @@ class MotoGPPublicAPIClient:
         
         Args:
             season: Year
-            category: Category ID (e.g., 'e8c110ad-64aa-4e8e-8a86-f2f152f6a942' for MotoGP)
+            category: Category UUID
         
         Returns:
             List of riders with details
         """
         try:
             logger.info(f"Fetching riders for {category} season {season}")
+            # Get season UUID first
+            season_uuid = await self.get_season_uuid(season)
+            if not season_uuid:
+                logger.error(f"Could not find UUID for season {season}")
+                return []
+            
             data = await self._make_request(
                 f"results/riders",
-                params={"year": season, "category": category}
+                params={"seasonUuid": season_uuid, "categoryUuid": category}
             )
             
             riders = []
@@ -227,8 +271,7 @@ class MotoGPPublicAPIClient:
                 f"results/session/{session_id}/classification",
                 params={
                     "eventUuid": event_id,
-                    "categoryUuid": category,
-                    "year": season
+                    "categoryUuid": category
                 }
             )
             
@@ -294,10 +337,16 @@ class MotoGPPublicAPIClient:
         """
         try:
             logger.info(f"Fetching championship standings for {category} {season}")
+            # Get season UUID first
+            season_uuid = await self.get_season_uuid(season)
+            if not season_uuid:
+                logger.error(f"Could not find UUID for season {season}")
+                return []
+            
             data = await self._make_request(
                 f"results/standings/riders",
                 params={
-                    "year": season,
+                    "seasonUuid": season_uuid,
                     "categoryUuid": category
                 }
             )
